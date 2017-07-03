@@ -1,0 +1,112 @@
+
+@using Nop.Web.Models.Checkout;
+
+@using PayJS_Samples.Misc
+@using Newtonsoft.Json;
+
+@{
+    Layout = "~/Views/Shared/_ColumnsOne.cshtml";
+
+    //title
+    Html.AddTitleParts(T("PageTitle.Checkout").Text);
+
+    Nonces Nonces  = Shared.GetNonces();
+
+    var request = new
+    {
+        clientId = Shared.DeveloperID,
+        merchantId = Shared.MerchantID,
+        merchantKey = Shared.MerchantKEY, // don't include the Merchant Key in the JavaScript initialization!
+        requestType = "payment",
+        orderNumber = "Invoice" + (new Random()).Next(100).ToString(),
+        amount = Shared.Amount,
+        salt = Nonces.Salt
+    };
+
+    string jsonReq = JsonConvert.SerializeObject(request);
+   // string AuthKey = Shared.GetAuthKey(jsonReq, Shared.ClientID, Nonces.IV, Nonces.Salt);
+   string AuthKey = Shared.GetAuthKey(jsonReq, Shared.DeveloperKEY, Nonces.IV, Nonces.Salt);
+}
+
+
+
+<style>
+    #paymentDiv {
+        width: 60%;
+        margin-left: auto;
+        margin-right: auto;
+        padding: 30px;
+
+    }
+</style>
+<div class="wrapper text-center">
+    <h1>Inline</h1>
+    <p>When PayJS is initialized with a <code>&lt;div&gt;</code>, the UI appears within that element:</p>
+    <br />
+    <div>
+        <div id="paymentDiv"></div>
+        <br /><br />
+        <h5>Results:</h5>
+        <p style="width:100%"><pre><code id="paymentResponse">The response will appear here as JSON, and in your browser console as a JavaScript object.</code></pre></p>
+    </div>
+</div>
+
+
+<script type="text/javascript">
+   
+   PayJS(['PayJS/UI', 'jquery'], // name the modules you want to use...
+   function ($UI, $) { // ... and then assign them to variables.
+
+       // we'll start by initializing the UI:
+       $UI.Initialize({
+           // developer:
+           clientId: "@Shared.DeveloperID",
+           // merchant:
+           merchantId: "@request.merchantId",
+
+           // request:
+           requestType: "@request.requestType",
+           orderNumber: "@request.orderNumber",
+           amount: "@request.amount",
+
+           // security:
+           authKey: "@AuthKey",
+           salt: "@request.salt",
+
+           // ui:
+           elementId: "paymentDiv", // the DOM that $UI should attach itself to,
+
+           // dev QoL:
+           // debug: true, // verbose logging
+           // show: true, // show the modal immediately, instead of waiting for a click
+           addFakeData: true // pre-fill the form with test values
+       });
+
+       // and then we'll set a callback function to execute after the user
+       // has submitted their card data and received a respnonse back
+       $UI.setCallback(function ($RESP) { // the callback function receives an instance of the RESPONSE module
+           console.log("Ajax Response:");
+           console.log($RESP.getAjaxResponse());
+           console.log("API Response:");
+           console.log($RESP.getApiResponse());
+           console.log("Gateway Response:");
+           console.log($RESP.getGatewayResponse());
+           console.log("API Response + Hash:");
+           console.log($RESP.getResponseHash())
+           $("#paymentResponse").text(
+               $RESP.getApiResponse()
+           );
+           // the response includes the gateway response, plus a SHA512 HMAC of the gateway response
+           // the HMAC uses your developer key to sign the response payload
+           // it's always a good idea to verify the hash, server-side, to ensure that the response is legitimate
+           // this is especially important if you're changing an account balance, shipping a product, etc.
+       });
+   });
+
+
+    // When Sage Payment Credit Card Panel display, it displays another instances of 
+    // the Administrator link and the Powered By nopCommerce
+    $('.footer:eq(0)').hide();
+    $('.administration:eq(1)').hide();
+</script>
+
